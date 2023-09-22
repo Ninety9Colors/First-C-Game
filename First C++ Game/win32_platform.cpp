@@ -7,23 +7,26 @@
 
 namespace {
 	bool global_running = true;
+	Render_State render_state;
+	Renderer renderer;
 }
 
 const void* Render_State::get_memory() {
 	std::lock_guard<std::mutex> lock(memory_mutex_);
 	return memory_;
-}
+};
 void Render_State::create_memory(const HWND& hwnd) {
+	std::lock_guard<std::mutex> lock(memory_mutex_);
 
 	RECT temp_rect;
 	GetClientRect(hwnd, &temp_rect); //gives rect the top, bottom, right, and left pixels
-	Render_State::set_width(temp_rect.right - temp_rect.left);
-	Render_State::set_height(temp_rect.bottom - temp_rect.top);
+	render_state.set_width(temp_rect.right - temp_rect.left);
+	render_state.set_height(temp_rect.bottom - temp_rect.top);
 	int memory_size = width_ * height_ * sizeof(uint32_t); //pixels * size of a RGB pixel
 
-	if (Render_State::get_memory()) VirtualFree(memory_, 0, MEM_RELEASE); // removes the memory so it can be reallocated
+	if (render_state.get_memory()) VirtualFree(memory_, 0, MEM_RELEASE); // removes the memory so it can be reallocated
 	memory_ = (VirtualAlloc(0, memory_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)); // creates memory on the heap with windows specific alloc
-}
+};
 const int& Render_State::get_width() {
 	std::lock_guard<std::mutex> lock{ width_mutex_ };
 	return width_;
@@ -55,17 +58,17 @@ LRESULT CALLBACK window_processor(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 	switch (uMsg) {
 		case WM_SIZE: {//window changed size
 
-			Render_State::create_memory(hwnd);
+			render_state.create_memory(hwnd);
 
 			// initialize render_state bitmapinfo
 			BITMAPINFO temp_bitmap_info{};
 			temp_bitmap_info.bmiHeader.biSize = sizeof(temp_bitmap_info.bmiHeader);
-			temp_bitmap_info.bmiHeader.biWidth = Render_State::get_width();
-			temp_bitmap_info.bmiHeader.biHeight = Render_State::get_height();
+			temp_bitmap_info.bmiHeader.biWidth = render_state.get_width();
+			temp_bitmap_info.bmiHeader.biHeight = render_state.get_height();
 			temp_bitmap_info.bmiHeader.biPlanes = 1; //must be one for some reason
 			temp_bitmap_info.bmiHeader.biBitCount = 32;
 			temp_bitmap_info.bmiHeader.biCompression = BI_RGB; // no compression format
-			Render_State::set_bitmap_info(temp_bitmap_info);
+			render_state.set_bitmap_info(temp_bitmap_info);
 
 		}break;
 		case WM_CLOSE: {
@@ -117,15 +120,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 			DispatchMessage(&message);
 		}
 		//Simulate
-		Renderer::clear_screen(Render_State::get_width(), Render_State::get_height(), Render_State::get_memory(), 0x111111);
-		Renderer::draw_rect_centered(0, 0, 99, 1, Render_State::get_width(), Render_State::get_height(), Render_State::get_memory(), 0x00FF00);
+		renderer.clear_screen(render_state, 0x111111);
+		renderer.draw_rect_centered(render_state, 0, 0, 99, 1, 0x00FF00);
 		//Render
 		StretchDIBits(device_context, // to draw something you need a device context
 			0, 0, // for xDest and yDest, 0 starts at the top left corner
-			Render_State::get_width(), Render_State::get_height(),
-			0, 0, Render_State::get_width(), Render_State::get_height(), // dimensions for when window interprets memory as a 2d rectangle
-			Render_State::get_memory(),
-			&Render_State::get_bitmap_info(), // HOW TO INTERPRET THE MEMORY
+			render_state.get_width(), render_state.get_height(),
+			0, 0, render_state.get_width(), render_state.get_height(), // dimensions for when window interprets memory as a 2d rectangle
+			render_state.get_memory(),
+			&render_state.get_bitmap_info(), // HOW TO INTERPRET THE MEMORY
 			DIB_RGB_COLORS,
 			SRCCOPY); // how the memory is displayed as pixels
 	}

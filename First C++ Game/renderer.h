@@ -9,8 +9,8 @@ private:
 public:
 	const float& get_render_scale();
 
-	static void clear_screen(const int& render_width, const int& render_height, const void* render_memory, uint32_t color);
-	static void draw_rect_in_pixels(int pos_x, int pos_y, int width, int height, const int &render_width, const int& render_height, const void* render_memory, const uint32_t& color);
-	static void draw_rect_centered(int pos_x, int pos_y, int rect_width, int rect_height, const int &render_width, const int& render_height, const void* render_memory, const uint32_t& color);
+	void clear_screen(Render_State& render_state, uint32_t color);
+	void draw_rect_in_pixels(Render_State& render_state, int pos_x, int pos_y, int width, int height, const uint32_t& color);
+	void draw_rect_centered(Render_State& render_state, float pos_x, float pos_y, float half_width, float half_height, const uint32_t& color);
 };
 #endif
