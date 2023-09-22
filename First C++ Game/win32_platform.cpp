@@ -16,16 +16,16 @@ const void* Render_State::get_memory() {
 	return memory_;
 };
 void Render_State::create_memory(const HWND& hwnd) {
-	std::lock_guard<std::mutex> lock(memory_mutex_);
-
 	RECT temp_rect;
 	GetClientRect(hwnd, &temp_rect); //gives rect the top, bottom, right, and left pixels
 	render_state.set_width(temp_rect.right - temp_rect.left);
 	render_state.set_height(temp_rect.bottom - temp_rect.top);
-	int memory_size = width_ * height_ * sizeof(uint32_t); //pixels * size of a RGB pixel
-
-	if (render_state.get_memory()) VirtualFree(memory_, 0, MEM_RELEASE); // removes the memory so it can be reallocated
-	memory_ = (VirtualAlloc(0, memory_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)); // creates memory on the heap with windows specific alloc
+	int memory_size = get_width() * get_height() * sizeof(uint32_t); //pixels * size of a RGB pixel
+	{
+		std::lock_guard<std::mutex> lock(memory_mutex_);
+		if (memory_) VirtualFree(memory_, 0, MEM_RELEASE); // removes the memory so it can be reallocated
+		memory_ = (VirtualAlloc(0, memory_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)); // creates memory on the heap with windows specific alloc
+	}
 };
 const int& Render_State::get_width() {
 	std::lock_guard<std::mutex> lock{ width_mutex_ };
